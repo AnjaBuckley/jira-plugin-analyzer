@@ -115,9 +115,26 @@ def analyze_with_openai(text: str, plugin_name: str, current_version: str, targe
             release_notes=text
         )
 
+        # Get the selected model
+        model = st.session_state.get('openai_model', 'gpt-3.5-turbo')
+        
+        # Show which model is being used
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### Current Analysis")
+        st.sidebar.info(f"🤖 Using model: {model}")
+        
+        # Add token estimation
+        approx_tokens = len(text.split()) + len(SYSTEM_PROMPT.split()) + len(user_prompt.split())
+        estimated_cost = (
+            "$0.0015 per 1K tokens" if model == "gpt-3.5-turbo" 
+            else "$0.01-0.03 per 1K tokens"
+        )
+        st.sidebar.text(f"Estimated tokens: ~{approx_tokens}")
+        st.sidebar.text(f"Estimated cost: {estimated_cost}")
+
         # Call OpenAI API
         response = client.chat.completions.create(
-            model="gpt-4-turbo-preview",
+            model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt}
@@ -125,6 +142,16 @@ def analyze_with_openai(text: str, plugin_name: str, current_version: str, targe
             temperature=0.0,
             max_tokens=2000
         )
+
+        # Show actual tokens used
+        input_tokens = response.usage.prompt_tokens
+        output_tokens = response.usage.completion_tokens
+        total_tokens = response.usage.total_tokens
+        
+        st.sidebar.text(f"Actual tokens used:")
+        st.sidebar.text(f"  Input: {input_tokens}")
+        st.sidebar.text(f"  Output: {output_tokens}")
+        st.sidebar.text(f"  Total: {total_tokens}")
 
         # Parse the response
         analysis_text = response.choices[0].message.content
@@ -307,82 +334,102 @@ def display_analysis_results(results: Dict[str, Any], plugin_name: str):
             unsafe_allow_html=True
         )
 
-st.title("🚀 Jira Plugin Release Notes Analyzer")
-st.markdown("Analyze plugin release notes efficiently before upgrading Jira Data Center.")
+def main():
+    st.title("🚀 Jira Plugin Release Notes Analyzer")
+    st.markdown("Analyze plugin release notes efficiently before upgrading Jira Data Center.")
 
-# Jira Version Inputs
-col1, col2 = st.columns(2)
-with col1:
-    current_jira_version = st.text_input("Current Jira Data Center Version", "9.4.0")
-with col2:
-    target_jira_version = st.text_input("Target Jira Data Center Version", "10.3.0")
-
-# Plugin Configuration Section
-st.subheader("Plugin Configuration")
-
-# Create a form for plugin details
-with st.form("plugin_form"):
-    plugin_name = st.text_input("Plugin Name")
-    current_version = st.text_input("Current Version")
-    target_version = st.text_input("Target Version")
-    
-    # URL inputs
-    st.subheader("Release Notes URLs (up to 3)")
-    url1 = st.text_input("Release Notes URL 1")
-    url2 = st.text_input("Release Notes URL 2 (optional)")
-    url3 = st.text_input("Release Notes URL 3 (optional)")
-    
-    # File upload
-    st.subheader("Or Upload Release Notes File")
-    uploaded_file = st.file_uploader("Choose a PDF file", type=['pdf'])
-    
-    # Submit button
-    submitted = st.form_submit_button("Analyze Release Notes")
-
-# Process the inputs when form is submitted
-if submitted:
-    st.info("Processing release notes...")
-    
-    all_text = ""
-    
-    # Process URLs
-    urls = [url for url in [url1, url2, url3] if url]
-    if urls:
-        for url in urls:
-            try:
-                response = requests.get(url)
-                response.raise_for_status()
-                soup = BeautifulSoup(response.text, 'html.parser')
-                # Remove script and style elements
-                for script in soup(["script", "style"]):
-                    script.decompose()
-                all_text += soup.get_text() + "\n\n"
-            except Exception as e:
-                st.error(f"Error fetching URL {url}: {str(e)}")
-    
-    # Process PDF if uploaded
-    if uploaded_file:
-        try:
-            pdf_reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.read()))
-            for page in pdf_reader.pages:
-                all_text += page.extract_text() + "\n\n"
-        except Exception as e:
-            st.error(f"Error processing PDF: {str(e)}")
-    
-    if all_text:
-        # Analyze the content using OpenAI
-        results = analyze_with_openai(
-            all_text,
-            plugin_name or "Unknown Plugin",
-            current_jira_version,
-            target_jira_version
+    # Add model selection in sidebar
+    with st.sidebar:
+        st.header("Settings")
+        model = st.selectbox(
+            "Select OpenAI Model",
+            options=['gpt-3.5-turbo', 'gpt-4-turbo-preview'],
+            index=0,
+            help="GPT-3.5 is more cost-effective, while GPT-4 may provide more detailed analysis"
         )
+        st.session_state['openai_model'] = model
         
-        # Display results in the new format
-        display_analysis_results(results, plugin_name or "Unknown Plugin")
-    else:
-        st.warning("No content to analyze. Please provide either URLs or a PDF file.")
+        if model == 'gpt-3.5-turbo':
+            st.info("💰 Using GPT-3.5-turbo for cost-effective analysis")
+        else:
+            st.warning("💎 Using GPT-4 for premium analysis (higher cost)")
 
-# Add export functionality
-if st.button("Export Report"):
-    st.info("Export functionality will be implemented in the next iteration")
+    # Jira Version Inputs
+    col1, col2 = st.columns(2)
+    with col1:
+        current_jira_version = st.text_input("Current Jira Data Center Version", "9.4.0")
+    with col2:
+        target_jira_version = st.text_input("Target Jira Data Center Version", "10.3.0")
+
+    # Plugin Configuration Section
+    st.subheader("Plugin Configuration")
+
+    # Create a form for plugin details
+    with st.form("plugin_form"):
+        plugin_name = st.text_input("Plugin Name")
+        current_version = st.text_input("Current Version")
+        target_version = st.text_input("Target Version")
+        
+        # URL inputs
+        st.subheader("Release Notes URLs (up to 3)")
+        url1 = st.text_input("Release Notes URL 1")
+        url2 = st.text_input("Release Notes URL 2 (optional)")
+        url3 = st.text_input("Release Notes URL 3 (optional)")
+        
+        # File upload
+        st.subheader("Or Upload Release Notes File")
+        uploaded_file = st.file_uploader("Choose a PDF file", type=['pdf'])
+        
+        # Submit button
+        submitted = st.form_submit_button("Analyze Release Notes")
+
+    # Process the inputs when form is submitted
+    if submitted:
+        st.info("Processing release notes...")
+        
+        all_text = ""
+        
+        # Process URLs
+        urls = [url for url in [url1, url2, url3] if url]
+        if urls:
+            for url in urls:
+                try:
+                    response = requests.get(url)
+                    response.raise_for_status()
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    # Remove script and style elements
+                    for script in soup(["script", "style"]):
+                        script.decompose()
+                    all_text += soup.get_text() + "\n\n"
+                except Exception as e:
+                    st.error(f"Error fetching URL {url}: {str(e)}")
+        
+        # Process PDF if uploaded
+        if uploaded_file:
+            try:
+                pdf_reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.read()))
+                for page in pdf_reader.pages:
+                    all_text += page.extract_text() + "\n\n"
+            except Exception as e:
+                st.error(f"Error processing PDF: {str(e)}")
+        
+        if all_text:
+            # Analyze the content using OpenAI
+            results = analyze_with_openai(
+                all_text,
+                plugin_name or "Unknown Plugin",
+                current_jira_version,
+                target_jira_version
+            )
+            
+            # Display results in the new format
+            display_analysis_results(results, plugin_name or "Unknown Plugin")
+        else:
+            st.warning("No content to analyze. Please provide either URLs or a PDF file.")
+
+    # Add export functionality
+    if st.button("Export Report"):
+        st.info("Export functionality will be implemented in the next iteration")
+
+if __name__ == "__main__":
+    main()

@@ -5,4 +5,5 @@ PyPDF2==3.0.1
 requests==2.31.0
 pydantic>=1.10.0,<2.0.0
 beautifulsoup4==4.12.3
-openai==1.12.0 
+openai==1.12.0
+fpdf2==2.7.8 
