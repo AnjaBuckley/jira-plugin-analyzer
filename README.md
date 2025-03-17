@@ -4,22 +4,36 @@ A streamlined tool for analyzing Jira Data Center plugin release notes. This app
 
 ## Features
 
-- 🔍 Intelligent analysis of release notes using GPT-4
-- 📊 Structured output categorizing changes by type:
+- 🔍 Intelligent analysis of release notes using AI
+  - Automatic categorization of changes
+  - Importance level detection
+  - Compatibility warning identification
+- 📊 Structured output in three categories:
   - User-facing changes
   - Administrative changes
   - Compatibility warnings
-- 🎯 Importance highlighting for critical updates
+- 🎯 Smart importance highlighting
+  - Major changes marked with 🔴
+  - Minor changes marked with 🟡
+  - Compatibility warnings with ⚠️
 - 📥 Multiple input methods:
   - Direct URL input (up to 3 URLs)
   - PDF file upload
+- 💾 Export options:
+  - Markdown format for documentation
+  - PDF format for reporting
 - 🎨 Clean, modern UI with Streamlit
+- 💰 Cost optimization:
+  - Choice between GPT-3.5 (cost-effective) and GPT-4 (premium)
+  - Token usage tracking
+  - Estimated cost display
 
 ## Prerequisites
 
 - Python 3.13+
 - Virtual environment (recommended)
 - OpenAI API key
+- macOS, Linux, or Windows
 
 ## Setup
 
@@ -31,10 +45,13 @@ cd jira-plugin-analyzer
 
 2. Create and activate a virtual environment:
 ```bash
+# On macOS/Linux
 python -m venv .venv
-source .venv/bin/activate  # On Unix/macOS
-# OR
-.venv\Scripts\activate  # On Windows
+source .venv/bin/activate
+
+# On Windows
+python -m venv .venv
+.venv\Scripts\activate
 ```
 
 3. Install dependencies:
@@ -44,17 +61,22 @@ pip install -r requirements.txt
 
 4. Create a `.env` file in the project root:
 ```bash
-touch .env
+# Create the file
+touch .env  # On macOS/Linux
+# OR
+type nul > .env  # On Windows
+
+# Add your OpenAI API key
+echo "OPENAI_API_KEY=your_api_key_here" > .env
 ```
 
-5. Add your OpenAI API key to the `.env` file:
-```
-OPENAI_API_KEY=your_api_key_here
-```
-
-6. (Optional) For better performance, install Watchdog:
+5. (Optional) For better performance, install Watchdog:
 ```bash
-xcode-select --install  # On macOS
+# On macOS
+xcode-select --install
+pip install watchdog
+
+# On other platforms
 pip install watchdog
 ```
 
@@ -69,17 +91,17 @@ streamlit run app.py
 - Local: http://localhost:8501
 - Network: http://[your-ip]:8501
 
-3. Enter the required information:
-   - Current Jira Data Center version
-   - Target Jira Data Center version
-   - Plugin name
-   - Plugin versions (current and target)
+3. Configure your analysis:
+   - Select AI model (GPT-3.5 or GPT-4)
+   - Enter Jira versions (current and target)
+   - Input plugin details
+   - Provide release notes via URL or PDF
 
-4. Input release notes either by:
-   - Pasting up to 3 URLs
-   - Uploading a PDF file
+4. Click "Analyze Release Notes" to get your structured analysis
 
-5. Click "Analyze Release Notes" to get a structured analysis
+5. Export results:
+   - Use "Export Markdown" for documentation
+   - Use "Export PDF" for reports
 
 ## Output Format
 
@@ -88,15 +110,24 @@ The analysis is presented in three columns:
 2. **Admin Changes**: Configuration, setup, and maintenance updates
 3. **Compatibility Warnings**: Version compatibility issues and requirements
 
-Each change is marked with an importance badge:
+Each change is marked with an importance indicator:
 - 🔴 Major/Critical changes
 - 🟡 Minor changes
+- ⚠️ Compatibility warnings
+
+## Cost Optimization
+
+- Default model: GPT-3.5-turbo (cost-effective)
+- Optional: GPT-4-turbo for more detailed analysis
+- Token usage tracking in the sidebar
+- Estimated cost display per analysis
 
 ## Security
 
 - Never commit your `.env` file
 - Keep your OpenAI API key secure
 - Use environment variables for sensitive data
+- `.gitignore` configured for security
 
 ## Contributing
 
@@ -113,7 +144,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 - Built with Streamlit
-- Powered by OpenAI's GPT-4
+- Powered by OpenAI's GPT models
 - Inspired by the needs of Jira administrators
 
 ## Support
