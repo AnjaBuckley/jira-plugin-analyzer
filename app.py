@@ -247,13 +247,14 @@ def warning_text(text: str) -> str:
     """Format warning text in red."""
     return f'<span style="color: #FF5630">{text}</span>'
 
-def generate_markdown(results: Dict[str, Any], plugin_name: str) -> str:
+def generate_markdown(results: Dict[str, Any], plugin_name: str, current_version: str, target_version: str) -> str:
     """Generate a markdown report from the analysis results."""
     markdown = f"# {plugin_name} Release Notes Analysis\n\n"
+    markdown += f"Analysis from version {current_version} to {target_version}\n"
     markdown += f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
     # Add User Changes
-    markdown += "## User Changes\n\n"
+    markdown += "## 👤 User Changes\n\n"
     user_changes_by_category = {}
     for change in results['user']:
         category = change.get('category', 'General')
@@ -269,7 +270,7 @@ def generate_markdown(results: Dict[str, Any], plugin_name: str) -> str:
             markdown += f"{importance} {change['text']}\n\n"
 
     # Add Admin Changes
-    markdown += "## Admin Changes\n\n"
+    markdown += "## ⚙️ Admin Changes\n\n"
     admin_changes_by_category = {}
     for change in results['admin']:
         category = change.get('category', 'General')
@@ -285,13 +286,14 @@ def generate_markdown(results: Dict[str, Any], plugin_name: str) -> str:
             markdown += f"{importance} {change['text']}\n\n"
 
     # Add Compatibility Warnings
-    markdown += "## Compatibility Warnings\n\n"
-    for warning in results['compatibility']:
-        markdown += f"⚠️ {warning['text']}\n\n"
+    if results['compatibility']:
+        markdown += "## ⚠️ Compatibility Warnings\n\n"
+        for warning in results['compatibility']:
+            markdown += f"- ⚠️ {warning['text']}\n\n"
 
     return markdown
 
-def generate_pdf(results: Dict[str, Any], plugin_name: str) -> bytes:
+def generate_pdf(results: Dict[str, Any], plugin_name: str, current_version: str, target_version: str) -> bytes:
     """Generate a PDF report from the analysis results."""
     pdf = FPDF()
     pdf.add_page()
@@ -306,15 +308,16 @@ def generate_pdf(results: Dict[str, Any], plugin_name: str) -> bytes:
     pdf.set_font('DejaVu', '', 16)
     pdf.cell(0, 10, f"{plugin_name} Release Notes Analysis", ln=True)
     pdf.set_font('DejaVu', '', 10)
+    pdf.cell(0, 10, f"Analysis from version {current_version} to {target_version}", ln=True)
     pdf.cell(0, 10, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
     pdf.ln(10)
 
     # Helper function to write text with proper wrapping
     def write_change(text: str, importance: str = None):
         if importance == 'major':
-            indicator = '[Major] '
+            indicator = '[MAJOR] '
         elif importance == 'minor':
-            indicator = '[Minor] '
+            indicator = '[MINOR] '
         else:
             indicator = '[!] '
         
@@ -366,20 +369,20 @@ def generate_pdf(results: Dict[str, Any], plugin_name: str) -> bytes:
         pdf.ln(5)
 
     # Compatibility Warnings
-    pdf.add_page()
-    pdf.set_font('DejaVu', '', 14)
-    pdf.cell(0, 10, "Compatibility Warnings", ln=True)
-    pdf.ln(5)
-    pdf.set_font('DejaVu', '', 10)
-    
-    for warning in results['compatibility']:
-        write_change(warning['text'])
-        pdf.ln(3)
+    if results['compatibility']:
+        pdf.add_page()
+        pdf.set_font('DejaVu', '', 14)
+        pdf.cell(0, 10, "Compatibility Warnings", ln=True)
+        pdf.ln(5)
+        pdf.set_font('DejaVu', '', 10)
+        
+        for warning in results['compatibility']:
+            write_change(warning['text'])
+            pdf.ln(3)
 
-    # Convert bytearray to bytes before returning
     return bytes(pdf.output())
 
-def display_analysis_results(results: Dict[str, Any], plugin_name: str):
+def display_analysis_results(results: Dict[str, Any], plugin_name: str, current_version: str, target_version: str):
     """Display analysis results in a table format with badges."""
     st.markdown("## Analysis Results")
     
@@ -390,7 +393,7 @@ def display_analysis_results(results: Dict[str, Any], plugin_name: str):
     if results['user'] or results['admin'] or results['compatibility']:
         with col2:
             # Generate and offer PDF download
-            pdf_bytes = generate_pdf(results, plugin_name)
+            pdf_bytes = generate_pdf(results, plugin_name, current_version, target_version)
             st.download_button(
                 "Export PDF",
                 pdf_bytes,
@@ -401,7 +404,7 @@ def display_analysis_results(results: Dict[str, Any], plugin_name: str):
         
         with col3:
             # Generate and offer Markdown download
-            markdown_content = generate_markdown(results, plugin_name)
+            markdown_content = generate_markdown(results, plugin_name, current_version, target_version)
             st.download_button(
                 "Export Markdown",
                 markdown_content,
@@ -430,16 +433,12 @@ def display_analysis_results(results: Dict[str, Any], plugin_name: str):
     </style>
     """, unsafe_allow_html=True)
     
-    cols = st.columns([2, 4, 4, 4])
+    cols = st.columns([4, 4, 4])
     
     # Headers
-    cols[0].markdown('<p class="analysis-header">Plugin</p>', unsafe_allow_html=True)
-    cols[1].markdown('<p class="analysis-header">User Changes</p>', unsafe_allow_html=True)
-    cols[2].markdown('<p class="analysis-header">Admin Changes</p>', unsafe_allow_html=True)
-    cols[3].markdown('<p class="analysis-header">Compatibility Warnings</p>', unsafe_allow_html=True)
-    
-    # Plugin name in first column
-    cols[0].markdown(f"**{plugin_name}**")
+    cols[0].markdown('<p class="analysis-header">👤 User Changes</p>', unsafe_allow_html=True)
+    cols[1].markdown('<p class="analysis-header">⚙️ Admin Changes</p>', unsafe_allow_html=True)
+    cols[2].markdown('<p class="analysis-header">⚠️ Compatibility Warnings</p>', unsafe_allow_html=True)
     
     # Group user changes by category
     user_changes_by_category = {}
@@ -452,9 +451,9 @@ def display_analysis_results(results: Dict[str, Any], plugin_name: str):
     # Display User Changes
     for category, changes in user_changes_by_category.items():
         if category != 'General':
-            cols[1].markdown(f'<p class="subsection-header">{category}</p>', unsafe_allow_html=True)
+            cols[0].markdown(f'<p class="subsection-header">{category}</p>', unsafe_allow_html=True)
         for change in changes:
-            cols[1].markdown(
+            cols[0].markdown(
                 f'<div class="change-item">{importance_badge(change["importance"])}{change["text"]}</div>', 
                 unsafe_allow_html=True
             )
@@ -470,16 +469,16 @@ def display_analysis_results(results: Dict[str, Any], plugin_name: str):
     # Display Admin Changes
     for category, changes in admin_changes_by_category.items():
         if category != 'General':
-            cols[2].markdown(f'<p class="subsection-header">{category}</p>', unsafe_allow_html=True)
+            cols[1].markdown(f'<p class="subsection-header">{category}</p>', unsafe_allow_html=True)
         for change in changes:
-            cols[2].markdown(
+            cols[1].markdown(
                 f'<div class="change-item">{importance_badge(change["importance"])}{change["text"]}</div>', 
                 unsafe_allow_html=True
             )
     
     # Display Compatibility Warnings
     for warning in results['compatibility']:
-        cols[3].markdown(
+        cols[2].markdown(
             f'<div class="change-item">{warning_text(warning["text"])}</div>', 
             unsafe_allow_html=True
         )
@@ -573,13 +572,9 @@ def main():
             )
             
             # Display results in the new format
-            display_analysis_results(results, plugin_name or "Unknown Plugin")
+            display_analysis_results(results, plugin_name or "Unknown Plugin", current_jira_version, target_jira_version)
         else:
             st.warning("No content to analyze. Please provide either URLs or a PDF file.")
-
-    # Add export functionality
-    if st.button("Export Report"):
-        st.info("Export functionality will be implemented in the next iteration")
 
 if __name__ == "__main__":
     main()
