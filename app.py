@@ -18,6 +18,8 @@ import os
 from openai import OpenAI
 from models import PluginAnalysis, ReleaseNote, ChangeType, Importance
 from dotenv import load_dotenv
+from fpdf import FPDF
+from datetime import datetime
 
 # Initialize environment and OpenAI client
 load_dotenv(override=True)
@@ -245,21 +247,169 @@ def warning_text(text: str) -> str:
     """Format warning text in red."""
     return f'<span style="color: #FF5630">{text}</span>'
 
+def generate_markdown(results: Dict[str, Any], plugin_name: str) -> str:
+    """Generate a markdown report from the analysis results."""
+    markdown = f"# {plugin_name} Release Notes Analysis\n\n"
+    markdown += f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+
+    # Add User Changes
+    markdown += "## User Changes\n\n"
+    user_changes_by_category = {}
+    for change in results['user']:
+        category = change.get('category', 'General')
+        if category not in user_changes_by_category:
+            user_changes_by_category[category] = []
+        user_changes_by_category[category].append(change)
+    
+    for category, changes in user_changes_by_category.items():
+        if category != 'General':
+            markdown += f"### {category}\n\n"
+        for change in changes:
+            importance = "🔴" if change["importance"] == "major" else "🟡"
+            markdown += f"{importance} {change['text']}\n\n"
+
+    # Add Admin Changes
+    markdown += "## Admin Changes\n\n"
+    admin_changes_by_category = {}
+    for change in results['admin']:
+        category = change.get('category', 'General')
+        if category not in admin_changes_by_category:
+            admin_changes_by_category[category] = []
+        admin_changes_by_category[category].append(change)
+    
+    for category, changes in admin_changes_by_category.items():
+        if category != 'General':
+            markdown += f"### {category}\n\n"
+        for change in changes:
+            importance = "🔴" if change["importance"] == "major" else "🟡"
+            markdown += f"{importance} {change['text']}\n\n"
+
+    # Add Compatibility Warnings
+    markdown += "## Compatibility Warnings\n\n"
+    for warning in results['compatibility']:
+        markdown += f"⚠️ {warning['text']}\n\n"
+
+    return markdown
+
+def generate_pdf(results: Dict[str, Any], plugin_name: str) -> bytes:
+    """Generate a PDF report from the analysis results."""
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Set up fonts and margins
+    pdf.set_left_margin(15)
+    pdf.set_right_margin(15)
+    pdf.add_font('DejaVu', '', '/System/Library/Fonts/Supplemental/Arial Unicode.ttf', uni=True)
+    pdf.set_font('DejaVu', '', 12)
+    
+    # Title
+    pdf.set_font('DejaVu', '', 16)
+    pdf.cell(0, 10, f"{plugin_name} Release Notes Analysis", ln=True)
+    pdf.set_font('DejaVu', '', 10)
+    pdf.cell(0, 10, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ln=True)
+    pdf.ln(10)
+
+    # Helper function to write text with proper wrapping
+    def write_change(text: str, importance: str = None):
+        if importance == 'major':
+            indicator = '[Major] '
+        elif importance == 'minor':
+            indicator = '[Minor] '
+        else:
+            indicator = '[!] '
+        
+        full_text = indicator + text
+        pdf.multi_cell(0, 7, full_text)
+        pdf.ln(3)
+
+    # User Changes
+    pdf.set_font('DejaVu', '', 14)
+    pdf.cell(0, 10, "User Changes", ln=True)
+    pdf.ln(5)
+    
+    user_changes_by_category = {}
+    for change in results['user']:
+        category = change.get('category', 'General')
+        if category not in user_changes_by_category:
+            user_changes_by_category[category] = []
+        user_changes_by_category[category].append(change)
+    
+    for category, changes in user_changes_by_category.items():
+        if category != 'General':
+            pdf.set_font('DejaVu', '', 12)
+            pdf.cell(0, 10, category, ln=True)
+        pdf.set_font('DejaVu', '', 10)
+        for change in changes:
+            write_change(change['text'], change['importance'])
+        pdf.ln(5)
+
+    # Admin Changes
+    pdf.add_page()
+    pdf.set_font('DejaVu', '', 14)
+    pdf.cell(0, 10, "Admin Changes", ln=True)
+    pdf.ln(5)
+    
+    admin_changes_by_category = {}
+    for change in results['admin']:
+        category = change.get('category', 'General')
+        if category not in admin_changes_by_category:
+            admin_changes_by_category[category] = []
+        admin_changes_by_category[category].append(change)
+    
+    for category, changes in admin_changes_by_category.items():
+        if category != 'General':
+            pdf.set_font('DejaVu', '', 12)
+            pdf.cell(0, 10, category, ln=True)
+        pdf.set_font('DejaVu', '', 10)
+        for change in changes:
+            write_change(change['text'], change['importance'])
+        pdf.ln(5)
+
+    # Compatibility Warnings
+    pdf.add_page()
+    pdf.set_font('DejaVu', '', 14)
+    pdf.cell(0, 10, "Compatibility Warnings", ln=True)
+    pdf.ln(5)
+    pdf.set_font('DejaVu', '', 10)
+    
+    for warning in results['compatibility']:
+        write_change(warning['text'])
+        pdf.ln(3)
+
+    # Convert bytearray to bytes before returning
+    return bytes(pdf.output())
+
 def display_analysis_results(results: Dict[str, Any], plugin_name: str):
     """Display analysis results in a table format with badges."""
     st.markdown("## Analysis Results")
     
-    # Export button in the top right
-    col1, col2 = st.columns([8, 2])
-    with col2:
-        st.download_button(
-            "Export CSV",
-            "TODO: Implement CSV export",
-            "analysis_results.csv",
-            "text/csv",
-            use_container_width=True
-        )
+    # Export buttons in the top right
+    col1, col2, col3 = st.columns([6, 2, 2])
     
+    # Only show export buttons if we have results
+    if results['user'] or results['admin'] or results['compatibility']:
+        with col2:
+            # Generate and offer PDF download
+            pdf_bytes = generate_pdf(results, plugin_name)
+            st.download_button(
+                "Export PDF",
+                pdf_bytes,
+                f"{plugin_name.lower().replace(' ', '_')}_analysis.pdf",
+                "application/pdf",
+                use_container_width=True
+            )
+        
+        with col3:
+            # Generate and offer Markdown download
+            markdown_content = generate_markdown(results, plugin_name)
+            st.download_button(
+                "Export Markdown",
+                markdown_content,
+                f"{plugin_name.lower().replace(' ', '_')}_analysis.md",
+                "text/markdown",
+                use_container_width=True
+            )
+
     # Create three columns for the table
     st.markdown("""
     <style>
