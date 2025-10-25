@@ -4,15 +4,15 @@ A Streamlit application that analyzes Jira plugin release notes. This repository
 
 <img width="1505" height="813" alt="Screenshot 2025-10-25 at 12 38 46" src="https://github.com/user-attachments/assets/c0ab0dd3-0513-4e18-a414-76d8c5426076" />
 
-
+------
 
 <img width="1512" height="407" alt="Screenshot 2025-10-25 at 12 39 07" src="https://github.com/user-attachments/assets/f72fea07-ec17-4979-baf0-2626303ad053" />
 
-
+------
 
 <img width="1497" height="814" alt="Screenshot 2025-10-25 at 12 40 44" src="https://github.com/user-attachments/assets/3d2a63e9-c483-4f73-8572-6f199b3f3e2c" />
 
-
+------
 
 <img width="1512" height="771" alt="Screenshot 2025-10-25 at 12 48 34" src="https://github.com/user-attachments/assets/1f1196a9-0dc2-4486-9471-2342653eb2ac" />
 
